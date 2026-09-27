@@ -1,0 +1,3 @@
+com.example.auditstarter.config.AuditWebClientAutoConfiguration
+com.example.auditstarter.config.AuditKafkaAutoConfiguration
+com.example.auditstarter.config.AuditAspectAutoConfiguration

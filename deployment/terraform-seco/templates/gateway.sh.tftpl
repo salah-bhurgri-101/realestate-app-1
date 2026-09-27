@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euo pipefail
+dnf install -y docker
+systemctl enable --now docker
+echo '${dockerhub_token}' | docker login --username '${dockerhub_username}' --password-stdin
+cat > /opt/aurelia-gateway.env <<'ENV'
+SPRING_PROFILES_ACTIVE=prod
+SERVER_PORT=8080
+JWT_SECRET=${jwt_secret}
+CORS_ORIGINS=${cors_origins}
+REDIS_HOST=${redis_ip}
+REDIS_PORT=6379
+REDIS_PASSWORD=${redis_password}
+AUTH_SERVICE_URI=http://${auth_ip}:8081
+USER_SERVICE_URI=http://${user_ip}:8083
+PROPERTY_SERVICE_URI=http://${property_ip}:8082
+AUDIT_SERVICE_URI=http://${audit_ip}:8084
+ENV
+docker pull '${image}'
+docker rm -f aurelia-api-gateway 2>/dev/null || true
+cat > /etc/systemd/system/aurelia-api-gateway.service <<UNIT
+[Unit]
+After=docker.service
+Requires=docker.service
+[Service]
+Restart=always
+ExecStartPre=-/usr/bin/docker rm -f aurelia-api-gateway
+ExecStart=/usr/bin/docker run --name aurelia-api-gateway --env-file /opt/aurelia-gateway.env -p 8080:8080 '${image}'
+ExecStop=/usr/bin/docker rm -f aurelia-api-gateway
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl enable --now aurelia-api-gateway.service

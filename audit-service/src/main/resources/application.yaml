@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: audit-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}   # override via SPRING_PROFILES_ACTIVE env var
+    # one profile active, if you what multiple profile active spring:profiles:active: dev,test, etc
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: property-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}

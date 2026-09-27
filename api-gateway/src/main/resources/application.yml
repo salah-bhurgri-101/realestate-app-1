@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: api-gateway
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}   # override via SPRING_PROFILES_ACTIVE env var
+    # one profile active; for multiple: spring.profiles.active: dev,test
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      enabled: false
+
+
+springdoc:
+  swagger-ui:
+    use-root-path: true
+
+    urls:
+      - name: auth
+        url: /v3/api-docs/auth
+
+      - name: property
+        url: /v3/api-docs/property
+
+      - name: audit
+        url: /v3/api-docs/audit
+
+      - name: apigateway
+        url: /v3/api-docs

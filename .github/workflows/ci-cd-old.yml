@@ -1,0 +1,282 @@
+# name: CI, Docker Hub and EC2 deploy
+
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#     branches: [main]
+#   workflow_dispatch:
+
+# permissions:
+#   contents: read
+
+# env:
+#   REGISTRY: docker.io
+#   IMAGE_NAMESPACE: ${{ secrets.DOCKERHUB_USERNAME }}
+#   IMAGE_TAG: ${{ github.sha }}
+
+# jobs:
+#   backend:
+#     name: Build and test ${{ matrix.service }}
+#     runs-on: ubuntu-latest
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         service: [api-gateway, auth-service, user-service, property-service, audit-service]
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-java@v4
+#         with:
+#           java-version: '21'
+#           distribution: temurin
+#           cache: maven
+
+#       - name: Build and install audit-starter
+#         if: matrix.service == 'property-service'
+#         working-directory: audit-starter
+#         run: mvn -ntp -DskipTests install
+  
+#       - name: Build and test ${{ matrix.service }}
+#         working-directory: ${{ matrix.service }}
+#         run: |
+#           chmod +x mvnw
+#           ./mvnw -ntp verify
+
+#       - if: github.event_name != 'pull_request'
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+#       - if: github.event_name != 'pull_request'
+#         uses: docker/build-push-action@v6
+#         with:
+#           context: ./${{ matrix.service }}
+#           push: true
+#           tags: |
+#             ${{ env.IMAGE_NAMESPACE }}/realestate-${{ matrix.service }}:${{ env.IMAGE_TAG }}
+#             ${{ env.IMAGE_NAMESPACE }}/realestate-${{ matrix.service }}:latest
+
+#   frontend:
+#     name: Build and push frontend
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-node@v4
+#         with:
+#           node-version: 22
+#           cache: npm
+#           cache-dependency-path: auth-frontend/package-lock.json
+#       - working-directory: auth-frontend
+#         run: npm ci
+#       - working-directory: auth-frontend
+#         run: npm run build
+#       - if: github.event_name != 'pull_request'
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+#       - if: github.event_name != 'pull_request'
+#         uses: docker/build-push-action@v6
+#         with:
+#           context: ./auth-frontend
+#           push: true
+#           build-args: |
+#             VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+#             VITE_PROPERTY_API_BASE_URL=${{ vars.VITE_PROPERTY_API_BASE_URL }}
+#           tags: |
+#             ${{ env.IMAGE_NAMESPACE }}/realestate-auth-frontend:${{ env.IMAGE_TAG }}
+#             ${{ env.IMAGE_NAMESPACE }}/realestate-auth-frontend:latest
+
+#   terraform:
+#     name: Terraform validate
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: hashicorp/setup-terraform@v3
+#       - working-directory: deployment/terraform
+#         run: terraform init -backend=false
+#       - working-directory: deployment/terraform
+#         run: terraform validate
+#       - working-directory: deployment/terraform
+#         run: terraform fmt -check
+
+#   deploy:
+#     name: Pull Docker Hub images on EC2
+#     needs: [backend, frontend, terraform]
+#     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+#     runs-on: ubuntu-latest
+#     environment: production
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Write SSH key
+#         run: |
+#           install -m 600 /dev/null deploy_key
+#           echo '${{ secrets.EC2_SSH_PRIVATE_KEY }}' > deploy_key
+#       - name: Deploy image tag to EC2 hosts
+#         env:
+#           SSH_KEY: deploy_key
+#           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+#           DOCKER_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+#           IMAGE_TAG: ${{ env.IMAGE_TAG }}
+#           GATEWAY_HOST: ${{ secrets.EC2_GATEWAY_HOST }}
+#           FRONTEND_HOST: ${{ secrets.EC2_FRONTEND_HOST }}
+#           AUTH_HOST: ${{ secrets.EC2_AUTH_HOST }}
+#           USER_HOST: ${{ secrets.EC2_USER_HOST }}
+#           PROPERTY_HOST: ${{ secrets.EC2_PROPERTY_HOST }}
+#           AUDIT_HOST: ${{ secrets.EC2_AUDIT_HOST }}
+#         run: |
+#           set -euo pipefail
+#           for entry in \
+#             "api-gateway:${GATEWAY_HOST}" \
+#             "auth-frontend:${FRONTEND_HOST}" \
+#             "auth-service:${AUTH_HOST}" \
+#             "user-service:${USER_HOST}" \
+#             "property-service:${PROPERTY_HOST}" \
+#             "audit-service:${AUDIT_HOST}"; do
+#             service="${entry%%:*}"
+#             host="${entry#*:}"
+#             test -n "$host"
+#             ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "ec2-user@$host" \
+#               "echo '$DOCKER_TOKEN' | docker login --username '$DOCKER_USER' --password-stdin && \
+#                docker pull '$DOCKER_USER/realestate-$service:$IMAGE_TAG' && \
+#                sudo systemctl restart aurelia-$service.service"
+#           done
+
+
+
+# # name: CI, Docker Hub and EC2 deploy
+
+# # on:
+# #   push:
+# #     branches: [main]
+# #   pull_request:
+# #     branches: [main]
+# #   workflow_dispatch:
+
+# # permissions:
+# #   contents: read
+
+# # env:
+# #   REGISTRY: docker.io
+# #   IMAGE_NAMESPACE: ${{ secrets.DOCKERHUB_USERNAME }}
+# #   IMAGE_TAG: ${{ github.sha }}
+
+# # jobs:
+# #   backend:
+# #     name: Build and test ${{ matrix.service }}
+# #     runs-on: ubuntu-latest
+# #     strategy:
+# #       fail-fast: false
+# #       matrix:
+# #         service: [api-gateway, auth-service, user-service, property-service, audit-service]
+# #     defaults:
+# #       run:
+# #         working-directory: ${{ matrix.service }}
+# #     steps:
+# #       - uses: actions/checkout@v4
+# #       - uses: actions/setup-java@v4
+# #         with:
+# #           java-version: '21'
+# #           distribution: temurin
+# #           cache: maven
+# #       - run: chmod +x mvnw
+# #       - run: ./mvnw -ntp verify
+# #       - if: github.event_name != 'pull_request'
+# #         uses: docker/login-action@v3
+# #         with:
+# #           username: ${{ secrets.DOCKERHUB_USERNAME }}
+# #           password: ${{ secrets.DOCKERHUB_TOKEN }}
+# #       - if: github.event_name != 'pull_request'
+# #         uses: docker/build-push-action@v6
+# #         with:
+# #           context: ./${{ matrix.service }}
+# #           push: true
+# #           tags: |
+# #             ${{ env.IMAGE_NAMESPACE }}/realestate-${{ matrix.service }}:${{ env.IMAGE_TAG }}
+# #             ${{ env.IMAGE_NAMESPACE }}/realestate-${{ matrix.service }}:latest
+
+# #   frontend:
+# #     name: Build and push frontend
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #       - uses: actions/checkout@v4
+# #       - uses: actions/setup-node@v4
+# #         with:
+# #           node-version: 22
+# #           cache: npm
+# #           cache-dependency-path: auth-frontend/package-lock.json
+# #       - working-directory: auth-frontend
+# #         run: npm ci
+# #       - working-directory: auth-frontend
+# #         run: npm run build
+# #       - if: github.event_name != 'pull_request'
+# #         uses: docker/login-action@v3
+# #         with:
+# #           username: ${{ secrets.DOCKERHUB_USERNAME }}
+# #           password: ${{ secrets.DOCKERHUB_TOKEN }}
+# #       - if: github.event_name != 'pull_request'
+# #         uses: docker/build-push-action@v6
+# #         with:
+# #           context: ./auth-frontend
+# #           push: true
+# #           build-args: |
+# #             VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+# #             VITE_PROPERTY_API_BASE_URL=${{ vars.VITE_PROPERTY_API_BASE_URL }}
+# #           tags: |
+# #             ${{ env.IMAGE_NAMESPACE }}/realestate-auth-frontend:${{ env.IMAGE_TAG }}
+# #             ${{ env.IMAGE_NAMESPACE }}/realestate-auth-frontend:latest
+
+# #   terraform:
+# #     name: Terraform validate
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #       - uses: actions/checkout@v4
+# #       - uses: hashicorp/setup-terraform@v3
+# #       - working-directory: deployment/terraform
+# #         run: terraform init -backend=false
+# #       - working-directory: deployment/terraform
+# #         run: terraform validate
+# #       - working-directory: deployment/terraform
+# #         run: terraform fmt -check
+
+# #   deploy:
+# #     name: Pull Docker Hub images on EC2
+# #     needs: [backend, frontend, terraform]
+# #     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+# #     runs-on: ubuntu-latest
+# #     environment: production
+# #     steps:
+# #       - uses: actions/checkout@v4
+# #       - name: Write SSH key
+# #         run: |
+# #           install -m 600 /dev/null deploy_key
+# #           echo '${{ secrets.EC2_SSH_PRIVATE_KEY }}' > deploy_key
+# #       - name: Deploy image tag to EC2 hosts
+# #         env:
+# #           SSH_KEY: deploy_key
+# #           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+# #           DOCKER_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+# #           IMAGE_TAG: ${{ env.IMAGE_TAG }}
+# #           GATEWAY_HOST: ${{ secrets.EC2_GATEWAY_HOST }}
+# #           FRONTEND_HOST: ${{ secrets.EC2_FRONTEND_HOST }}
+# #           AUTH_HOST: ${{ secrets.EC2_AUTH_HOST }}
+# #           USER_HOST: ${{ secrets.EC2_USER_HOST }}
+# #           PROPERTY_HOST: ${{ secrets.EC2_PROPERTY_HOST }}
+# #           AUDIT_HOST: ${{ secrets.EC2_AUDIT_HOST }}
+# #         run: |
+# #           set -euo pipefail
+# #           for entry in \
+# #             "api-gateway:${GATEWAY_HOST}" \
+# #             "auth-frontend:${FRONTEND_HOST}" \
+# #             "auth-service:${AUTH_HOST}" \
+# #             "user-service:${USER_HOST}" \
+# #             "property-service:${PROPERTY_HOST}" \
+# #             "audit-service:${AUDIT_HOST}"; do
+# #             service="${entry%%:*}"
+# #             host="${entry#*:}"
+# #             test -n "$host"
+# #             ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "ec2-user@$host" \
+# #               "echo '$DOCKER_TOKEN' | docker login --username '$DOCKER_USER' --password-stdin && \
+# #                docker pull '$DOCKER_USER/realestate-$service:$IMAGE_TAG' && \
+# #                sudo systemctl restart aurelia-$service.service"
+# #           done

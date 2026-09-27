@@ -1,0 +1,14 @@
+#!/bin/bash
+set -euo pipefail
+dnf install -y docker
+systemctl enable --now docker
+echo '${dockerhub_token}' | docker login --username '${dockerhub_username}' --password-stdin || true
+docker rm -f aurelia-${role} 2>/dev/null || true
+
+case '${role}' in
+  auth-db) docker run -d --restart unless-stopped --name aurelia-auth-db -e POSTGRES_DB=authdb -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD='${auth_password}' -p 5432:5432 ${image} ;;
+  user-db) docker run -d --restart unless-stopped --name aurelia-user-db -e POSTGRES_DB=user_service_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD='${user_password}' -p 5432:5432 ${image} ;;
+  audit-db) docker run -d --restart unless-stopped --name aurelia-audit-db -e POSTGRES_DB=auditdb -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD='${audit_password}' -p 5432:5432 ${image} ;;
+  property-db) docker run -d --restart unless-stopped --name aurelia-property-db -e MYSQL_ROOT_PASSWORD='${mysql_password}' -e MYSQL_DATABASE=propertydb -e MYSQL_USER=user -e MYSQL_PASSWORD='${property_password}' -p 3306:3306 ${image} ;;
+  redis) docker run -d --restart unless-stopped --name aurelia-redis -p 6379:6379 ${image} redis-server --requirepass '${redis_password}' ;;
+esac

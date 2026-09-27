@@ -1,0 +1,94 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/auth_db
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+
+  jpa:
+    hibernate:
+      ddl-auto: update          # use 'create' only in dev, 'validate' in prod
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_batch_fetch_size: 50
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 10
+          min-idle: 2
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:?MAIL_USERNAME must be set}
+    password: ${MAIL_PASSWORD:?MAIL_PASSWORD must be set}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 10
+        queue-capacity: 25
+    scheduling:
+      pool:
+        size: 3
+
+# ── auth config ───────────────────────────────────────────────────────────────
+auth:
+  jwt:
+    secret: ${JWT_SECRET:?JWT_SECRET must be set}
+    access-token-expiry-ms: 900000 # 15 minutes
+    issuer: auth-service
+
+  refresh-token:
+    expiry-days: 30
+
+  otp:
+    expiry-minutes: 5
+    rate-limit-minutes: 15
+
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+
+# ── actuator ──────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ── logging ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.auth: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN

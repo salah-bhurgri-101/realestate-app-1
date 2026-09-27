@@ -1,0 +1,11 @@
+# Add to the application.yml of any microservice that includes audit-starter.
+
+audit:
+  client:
+    base-url: http://audit-service:8084   # or http://localhost:8084 for local dev
+    service-token: ${AUDIT_SERVICE_TOKEN:}     # SERVICE-roled JWT from the Auth service (WEBCLIENT transport only)
+    enabled: true
+    timeout: 2s
+    max-retries: 2
+    retry-backoff: 200ms
+    fail-silently: true   # never let audit delivery failures break business logic

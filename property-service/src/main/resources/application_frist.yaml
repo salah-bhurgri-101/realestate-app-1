@@ -1,0 +1,82 @@
+#server:
+#  port: 8082
+#
+#spring:
+#  application:
+#    name: property-service
+#
+#  kafka:
+#    bootstrap-servers: localhost:9092
+#
+#  datasource:
+#    url: jdbc:mysql://localhost:3306/property_db
+#    username: user
+#    password: user
+#    driver-class-name: com.mysql.cj.jdbc.Driver
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: update
+#    show-sql: false
+#
+##  data:
+##    redis:
+##      host: localhost
+##      port: 6379
+#  data:
+#    redis:
+#      host: ${REDIS_HOST:localhost}
+#      port: ${REDIS_PORT:6379}
+#      password: ${REDIS_PASSWORD:}
+#      timeout: 3000ms
+#      lettuce:
+#        pool:
+#          max-active: 10
+#          max-idle: 10
+#          min-idle: 2
+#          time-between-eviction-runs: 60000ms
+#
+##  cache:
+##    type: redis
+##    redis:
+##      time-to-live: 600000       # default 10 min
+##      cache-null-values: false
+#
+#
+#jwt:
+#  secret: ${JWT_SECRET:mySuperSecretKeyForJwtTokenGeneration123456789}
+#
+#
+##//AUDIT STARTER FOR WEBCLIENT
+##audit:
+##  client:
+##    transport: webclient   # or "kafka" — see below
+##    base-url: http://localhost:8084/
+##    service-token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJQcm9wZXJ0eSBTZXJ2aWNlIiwicm9sZSI6IlJPTEVfU0VSVklDRSJ9.PlLkomQUEe-AptsiFd11KcjjiVI9GVstUKbCepfjbtU
+##    enabled: true
+##    timeout: 30s    # 2s ha
+##    max-retries: 2
+##    retry-backoff: 200ms
+##    fail-silently: true
+#
+##//AUDIT STARTER For KAFKA
+#audit:
+#  client:
+#    transport: kafka   # or "kafka" — see below
+#    base-url: http://localhost:8084/
+#    kafka:
+#      topic: audit-events
+#    enabled: true
+#    timeout: 30s    # 2s ha
+#    max-retries: 2
+#    retry-backoff: 200ms
+#    fail-silently: true
+##spring:
+##  kafka:
+##    bootstrap-servers: localhost:9092
+#
+#
+#
+##logging:
+##  level:
+##    com.example.auditstarter: DEBUG

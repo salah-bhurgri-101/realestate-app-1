@@ -1,0 +1,162 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 3000        # ms - time to establish connection
+            response-timeout: 5s
+          routes:
+            # --- Auth service: public, no JWT filter applied (login/register/refresh) ---
+            - id: auth-service
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/v1/auth/**,/v3/api-docs/auth
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 5
+                    redis-rate-limiter.burstCapacity: 10
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: authServiceCB
+                    fallbackUri: forward:/fallback/auth
+                - RewritePath=/v3/api-docs/auth, /v3/api-docs
+
+            - id: user-service
+              uri: http://localhost:8083
+              predicates:
+                - Path=/api/v1/users/**,/v3/api-docs/user
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: userServiceCB
+                    fallbackUri: forward:/fallback/user
+                - RewritePath=/v3/api-docs/user, /v3/api-docs
+
+            # --- Example backend service #1 ---
+            - id: property-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/api/properties/**,/v3/api-docs/property
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10   # avg sustained requests/sec per key
+                    redis-rate-limiter.burstCapacity: 20    # max burst before throttling
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: propertyServiceCB
+                    fallbackUri: forward:/fallback/property
+                - RewritePath=/v3/api-docs/property, /v3/api-docs
+
+            # --- Example backend service #2 ---
+            - id: audit-service
+              uri: http://localhost:8084
+              predicates:
+                - Path=/api/v1/audit-logs/**,/v3/api-docs/audit
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: auditServiceCB
+                    fallbackUri: forward:/fallback/audit
+                - RewritePath=/v3/api-docs/audit, /v3/api-docs
+          # When false, only routes explicitly defined below are exposed.
+          discovery:
+            locator:
+              enabled: false # true
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - "http://localhost:5173"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+                  - PATCH
+                  - OPTIONS
+                allowedHeaders: "*"
+                allowCredentials: true
+          default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Methods Access-Control-Allow-Headers RETAIN_FIRST
+  webflux:
+    problemdetails:
+      enabled: true  # false to global exception handler run ho
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: change_me_redis
+
+server:
+  port: 8080
+
+# Shared secret used to verify JWTs issued by the auth service (HS256).
+jwt:
+  secret: mySuperSecretKeyForJwtTokenGeneration123456789   # dummy fallback OK for local dev
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      authServiceCB:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+      propertyServiceCB:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+      auditServiceCB:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+      userServiceCB:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+  timelimiter:
+    instances:
+      authServiceCB:
+        timeout-duration: 5s
+      propertyServiceCB:
+        timeout-duration: 5s
+      auditServiceCB:
+        timeout-duration: 5s
+      userServiceCB:
+        timeout-duration: 5s
+
+
+#logging:
+#  level:
+#    root: INFO
+#    com.realestate.apigateway: INFO
+#    org.springframework.cloud.gateway: INFO
+#  pattern:
+#    console: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n"

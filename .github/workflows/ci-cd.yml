@@ -1,0 +1,162 @@
+# name: CI, Docker Hub and EC2 deploy
+
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#     branches: [main]
+#   workflow_dispatch:
+
+# permissions:
+#   contents: read
+
+# env:
+#   REGISTRY: docker.io
+#   IMAGE_NAMESPACE: ${{ secrets.DOCKERHUB_USERNAME }}
+#   IMAGE_TAG: ${{ github.sha }}
+
+# jobs:
+#   backend:
+#     name: Build and test ${{ matrix.service }}
+#     runs-on: ubuntu-latest
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         service: [api-gateway, auth-service, user-service, property-service, audit-service]
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-java@v4
+#         with:
+#           java-version: '21'
+#           distribution: temurin
+#           cache: maven
+
+#       - name: Build and install audit-starter
+#         if: matrix.service == 'property-service'
+#         working-directory: audit-starter
+#         run: mvn -ntp -DskipTests install
+
+#       - name: Build and test ${{ matrix.service }}
+#         working-directory: ${{ matrix.service }}
+#         run: |
+#           chmod +x mvnw
+#           ./mvnw -ntp verify
+
+#       - if: github.event_name != 'pull_request'
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+#       - if: github.event_name != 'pull_request'
+#         uses: docker/build-push-action@v6
+#         with:
+#           context: ./${{ matrix.service }}
+#           push: true
+#           # :latest is what production actually runs (systemd units pull it
+#           # on every restart); the sha tag is kept only for traceability /
+#           # manual rollback via `docker run ...:<sha>`.
+#           tags: |
+#             ${{ env.IMAGE_NAMESPACE }}/realestate-${{ matrix.service }}:${{ env.IMAGE_TAG }}
+#             ${{ env.IMAGE_NAMESPACE }}/realestate-${{ matrix.service }}:latest
+
+#   frontend:
+#     name: Build and push frontend
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-node@v4
+#         with:
+#           node-version: 22
+#           cache: npm
+#           cache-dependency-path: auth-frontend/package-lock.json
+#       - working-directory: auth-frontend
+#         run: npm ci
+#       - working-directory: auth-frontend
+#         run: npm run build
+#       - if: github.event_name != 'pull_request'
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+#       - if: github.event_name != 'pull_request'
+#         uses: docker/build-push-action@v6
+#         with:
+#           context: ./auth-frontend
+#           push: true
+#           build-args: |
+#             VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+#             VITE_PROPERTY_API_BASE_URL=${{ vars.VITE_PROPERTY_API_BASE_URL }}
+#           tags: |
+#             ${{ env.IMAGE_NAMESPACE }}/realestate-auth-frontend:${{ env.IMAGE_TAG }}
+#             ${{ env.IMAGE_NAMESPACE }}/realestate-auth-frontend:latest
+
+#   terraform:
+#     name: Terraform format and validate
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
+
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
+
+#       - name: Terraform format check
+#         working-directory: deployment/terraform
+#         run: terraform fmt -check -recursive
+
+#       - name: Terraform init
+#         working-directory: deployment/terraform
+#         run: terraform init -backend=false
+
+#       - name: Terraform validate
+#         working-directory: deployment/terraform
+#         run: terraform validate
+
+#   deploy:
+#     name: Restart services on EC2 (pulls :latest)
+#     needs: [backend, frontend, terraform]
+#     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+#     runs-on: ubuntu-latest
+#     environment: production
+#     steps:
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: us-east-1
+
+#       # --- edge host: public IP, SSH locked to admin CIDR only.
+#       # CI reaches it via SSM instead (instance already carries the SSM IAM role). ---
+#       - name: Restart edge services (frontend + api-gateway) via SSM
+#         env:
+#           EDGE_HOST_ID: ${{ secrets.EC2_EDGE_HOST_ID }}
+#         run: |
+#           set -euo pipefail
+#           CMD_ID=$(aws ssm send-command \
+#             --instance-ids "$EDGE_HOST_ID" \
+#             --document-name "AWS-RunShellScript" \
+#             --comment "deploy ${{ github.sha }}" \
+#             --parameters commands='["systemctl restart aurelia-auth-frontend.service aurelia-api-gateway.service"]' \
+#             --query "Command.CommandId" --output text)
+#           aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$EDGE_HOST_ID"
+#           aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$EDGE_HOST_ID" \
+#             --query "Status" --output text
+
+#       # --- private hosts: no public IP, no SSH ingress by design.
+#       # Reached via SSM (instance already carries the SSM IAM role). ---
+#       - name: Restart backend services on services-host via SSM
+#         env:
+#           SERVICES_HOST_ID: ${{ secrets.EC2_SERVICES_HOST_ID }}
+#         run: |
+#           set -euo pipefail
+#           CMD_ID=$(aws ssm send-command \
+#             --instance-ids "$SERVICES_HOST_ID" \
+#             --document-name "AWS-RunShellScript" \
+#             --comment "deploy ${{ github.sha }}" \
+#             --parameters commands='["systemctl restart aurelia-auth-service.service aurelia-user-service.service aurelia-property-service.service aurelia-audit-service.service"]' \
+#             --query "Command.CommandId" --output text)
+#           aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$SERVICES_HOST_ID"
+#           aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$SERVICES_HOST_ID" \
+#             --query "Status" --output text

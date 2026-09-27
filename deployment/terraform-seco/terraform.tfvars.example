@@ -1,0 +1,26 @@
+aws_region         = "us-east-1"
+ami_id             = "ami-xxxxxxxxxxxxxxxxx"
+instance_type      = "t2.micro" # free-tier eligible
+ssh_key_name       = "aurelia-xzs"
+admin_cidr         = "22.0.113.10/32"
+dockerhub_username = "your-dockerhub-user"
+image_tag          = "replace-with-github-sha"
+jwt_secret         = "replace-with-a-random-secret-at-least-32-bytes"
+cors_origins       = "https://frontend.example.com"
+mail_username      = "smtp-user"
+mail_password      = "smtp-app-password"
+
+db_passwords = {
+  auth     = "replace-auth-password"
+  user     = "replace-user-password"
+  audit    = "replace-audit-password"
+  property = "replace-property-password"
+  mysql    = "replace-mysql-root-password"
+  redis    = "replace-redis-password"
+}
+
+# dockerhub_token is sensitive -- pass it via TF_VAR_dockerhub_token env var
+# instead of committing it here.
+
+# private_subnet_cidrs defaults to ["10.40.11.0/24","10.40.12.0/24"] -- override
+# here only if that range collides with something else in your VPC plan.

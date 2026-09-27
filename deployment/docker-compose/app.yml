@@ -1,0 +1,280 @@
+name: "Realestate"
+# app.yml — application containers
+# Run together with infra.yml as ONE combined project so cross-file
+# depends_on / healthcheck references resolve correctly:
+
+#   docker compose -f infra.yml -f app.yml up -d
+#   docker compose -f infra.yml -f app.yml -p docker-compose up -d --build
+#
+# Do NOT run this file alone with `-f app.yml` only — services like
+# `redis`, `auth-db`, `property-db` are defined in infra.yml, and
+# Compose validates depends_on within the merged project, not across
+# separately-run files.
+
+networks:
+  backend:
+    name: realestate-backend
+#    external: true   # must already exist — created by infra.yml
+
+    # No `external: true` — infra.yml creates this network when both
+    # files are combined via -f infra.yml -f app.yml. Marking it
+    # external here would conflict with infra.yml's own definition.
+
+services:
+  audit-service:
+    build:
+      context: ../../audit-service
+      dockerfile: Dockerfile
+    image: ${AUDIT_IMAGE_NAME:-realestate-audit-service}:${AUDIT_IMAGE_TAG:-1.0.0}
+    container_name: audit-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: ${AUDIT_SERVER_PORT:-8084}
+
+      DB_HOST: ${AUDIT_DB_HOST:-audit-db}
+      DB_PORT: 5432
+      DB_NAME: ${AUDIT_DB_NAME:-auditdb}
+      DB_USER: ${AUDIT_DB_USER:-postgres}
+      DB_PASSWORD: ${AUDIT_DB_PASSWORD:?AUDIT_DB_PASSWORD must be set}
+
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      AUDIT_KAFKA_TOPIC: ${AUDIT_KAFKA_TOPIC:-audit-events}
+      AUDIT_KAFKA_PARTITIONS: ${AUDIT_KAFKA_PARTITIONS:-3}
+      AUDIT_KAFKA_REPLICAS: ${AUDIT_KAFKA_REPLICAS:-1}
+    restart: unless-stopped
+    depends_on:
+      audit-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+    labels:
+      logging: "promtail"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${AUDIT_SERVER_PORT:-8084}/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  property-service:
+    build:
+      context: ../../property-service
+      dockerfile: Dockerfile
+    image: ${PROPERTY_IMAGE_NAME:-realestate-property-service}:${PROPERTY_IMAGE_TAG:-local}
+    container_name: property-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: ${PROPERTY_SERVER_PORT:-8082}
+
+      DB_HOST: ${PROPERTY_DB_HOST:-property-db}
+      DB_PORT: 3306
+      DB_NAME: ${PROPERTY_DB_NAME:-propertydb}
+      DB_USERNAME: ${PROPERTY_DB_USER:-user}
+      DB_PASSWORD: ${PROPERTY_DB_PASSWORD:?PROPERTY_DB_PASSWORD must be set}
+
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      AUDIT_BASE_URL: ${AUDIT_BASE_URL:-http://audit-service:8084/}
+      AUDIT_KAFKA_TOPIC: ${AUDIT_KAFKA_TOPIC:-audit-events}
+    restart: unless-stopped
+    depends_on:
+      property-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+    labels:
+      logging: "promtail"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PROPERTY_SERVER_PORT:-8082}/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  auth-service:
+    build:
+      context: ../../auth-service
+      dockerfile: Dockerfile
+    image: ${AUTH_IMAGE_NAME:-realestate-auth-service}:${AUTH_IMAGE_TAG:-local}
+    container_name: auth-service
+    restart: unless-stopped
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: ${AUTH_SERVER_PORT:-8081}
+
+      DB_HOST: ${AUTH_DB_HOST:-auth-db}
+      DB_PORT: 5432
+      DB_NAME: ${AUTH_DB_NAME:-authdb}
+      DB_USERNAME: ${AUTH_DB_USER:-postgres}
+      DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD must be set}
+
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:?MAIL_USERNAME must be set}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?MAIL_PASSWORD must be set}
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${AUTH_SERVER_PORT:-8081}/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      logging: "promtail"
+    networks:
+      - backend
+
+  user-service:
+    build:
+      context: ../../user-service
+      dockerfile: Dockerfile
+    image: ${USER_IMAGE_NAME:-realestate-user-service}:${USER_IMAGE_TAG:-1.0.0}
+    container_name: user-service
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: ${USER_SERVER_PORT:-8083}
+      DB_HOST: ${USER_DB_HOST:-user-db}
+      DB_PORT: 5432
+      DB_NAME: ${USER_DB_NAME:-user_service_db}
+      DB_USERNAME: ${USER_DB_USER:-postgres}
+      DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD must be set}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set}
+    depends_on:
+      user-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${USER_SERVER_PORT:-8083}/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  api-gateway:
+    build:
+      context: ../../api-gateway
+      dockerfile: Dockerfile
+    image: ${GATEWAY_IMAGE_NAME:-realestate-api-gateway}:${GATEWAY_IMAGE_TAG:-local}
+    container_name: api-gateway
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: ${GATEWAY_SERVER_PORT:-8080}
+
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_redis}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+
+      AUTH_SERVICE_URI: ${AUTH_SERVICE_URI:-http://auth-service:8081}
+      PROPERTY_SERVICE_URI: ${PROPERTY_SERVICE_URI:-http://property-service:8082}
+      AUDIT_SERVICE_URI: ${AUDIT_SERVICE_URI:-http://audit-service:8084}
+      USER_SERVICE_URI: ${USER_SERVICE_URI:-http://user-service:8083}
+    ports:
+      - "${GATEWAY_HOST_PORT:-8080}:${GATEWAY_SERVER_PORT:-8080}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      property-service:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${GATEWAY_SERVER_PORT:-8080}/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      logging: "promtail"
+    networks:
+      - backend
+
+  auth-frontend:
+    build:
+      context: ../../auth-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
+        VITE_PROPERTY_API_BASE_URL: ${VITE_PROPERTY_API_BASE_URL:-http://localhost:8080/api/}
+    image: ${FRONTEND_IMAGE_NAME:-realestate-auth-frontend}:${FRONTEND_IMAGE_TAG:-local}
+    container_name: auth-frontend
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:80"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

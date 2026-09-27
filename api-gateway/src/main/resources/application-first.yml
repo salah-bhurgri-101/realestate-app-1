@@ -1,0 +1,112 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 3000        # ms - time to establish connection
+            response-timeout: 5s
+          routes:
+            # --- Auth service: public, no JWT filter applied (login/register/refresh) ---
+            - id: auth-service
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/v1/auth/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 5
+                    redis-rate-limiter.burstCapacity: 10
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+
+            # --- Example backend service #1 ---
+            - id: property-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/api/properties/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10   # avg sustained requests/sec per key
+                    redis-rate-limiter.burstCapacity: 20    # max burst before throttling
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+
+            # --- Example backend service #2 ---
+            - id: audit-service
+              uri: http://localhost:8084
+              predicates:
+                - Path=/api/v1/audit-logs/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+      # When false, only routes explicitly defined below are exposed.
+      discovery:
+        locator:
+          enabled: false # true
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: "*"
+            allowed-methods: "*"
+            allowed-headers: "*"
+            allow-credentials: false
+        default-filters:
+          - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Methods Access-Control-Allow-Headers RETAIN_FIRST
+  webflux:
+    problemdetails:
+      enabled: true  # false to global exception handler run ho
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD:redispassword}
+
+# Shared secret used to verify JWTs issued by the auth service (HS256).
+# Move this to an environment variable / secrets manager in real deployments.
+jwt:
+  secret: ${JWT_SECRET:mySuperSecretKeyForJwtTokenGeneration123456789}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*" # health,gateway and "*" all
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      enabled: false
+
+springdoc:
+  swagger-ui:
+    use-root-path: true
+#    urls:
+#      - name: catalog
+#        url: /v3/api-docs/catalog
+#      - name: orders
+#        url: /v3/api-docs/orders
+
+#logging:
+#  level:
+#    root: INFO
+#    com.example.apigateway: INFO
+#    org.springframework.cloud.gateway: INFO
+#  pattern:
+#    console: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n"

@@ -1,0 +1,20 @@
+package com.realestate.auth_service.entity;
+
+public enum AuditAction {
+    REGISTER,
+    OTP_SENT,
+    OTP_VERIFIED,
+    OTP_FAILED,
+    OTP_EXPIRED,
+    LOGIN_SUCCESS,
+    LOGIN_FAILED,
+    LOGOUT,
+    LOGOUT_ALL,
+    TOKEN_REFRESHED,
+    TOKEN_REPLAY_DETECTED,
+    PASSWORD_RESET_REQUESTED,
+    PASSWORD_RESET_SUCCESS,
+    PASSWORD_CHANGED,
+    ACCOUNT_LOCKED,
+    ACCOUNT_UNLOCKED
+}

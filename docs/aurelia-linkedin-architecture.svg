@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Aurelia Real Estate Platform</title>
+  <desc id="desc">Architecture overview showing React frontend, API gateway, Spring Boot microservices, Kafka, databases, Docker Hub and AWS EC2 Terraform deployment.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07152f"/>
+      <stop offset="1" stop-color="#102e58"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#020617" flood-opacity=".35"/>
+    </filter>
+    <style>
+      .title { font: 700 48px Arial, sans-serif; fill: #f8fafc; }
+      .subtitle { font: 400 21px Arial, sans-serif; fill: #b9c9e5; }
+      .label { font: 700 20px Arial, sans-serif; fill: #f8fafc; }
+      .small { font: 400 15px Arial, sans-serif; fill: #cbd5e1; }
+      .tiny { font: 400 13px Arial, sans-serif; fill: #94a3b8; }
+      .box { fill: #102849; stroke: #2c4a72; stroke-width: 2; }
+      .service { fill: #153763; stroke: #38bdf8; stroke-width: 2; }
+      .infra { fill: #123c4a; stroke: #2dd4bf; stroke-width: 2; }
+      .pill { fill: #193b68; stroke: #476b9c; stroke-width: 1; }
+      .line { stroke: #63d7ee; stroke-width: 3; fill: none; }
+      .dash { stroke: #4c789e; stroke-width: 2; stroke-dasharray: 8 8; fill: none; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="1200" fill="url(#bg)"/>
+  <circle cx="1040" cy="95" r="190" fill="#1d4ed8" opacity=".12"/>
+  <circle cx="80" cy="1050" r="230" fill="#14b8a6" opacity=".10"/>
+
+  <text x="72" y="82" class="title">AURELIA</text>
+  <text x="72" y="121" class="subtitle">Real Estate Marketplace | Microservices • Events • EC2</text>
+  <rect x="72" y="149" width="1056" height="4" rx="2" fill="url(#accent)"/>
+
+  <rect x="72" y="188" width="1056" height="112" rx="18" class="box" filter="url(#shadow)"/>
+  <text x="104" y="224" class="label">WEB EXPERIENCE</text>
+  <rect x="104" y="242" width="250" height="38" rx="19" class="pill"/>
+  <text x="229" y="267" text-anchor="middle" class="small">React + TypeScript + Vite</text>
+  <rect x="380" y="242" width="220" height="38" rx="19" class="pill"/>
+  <text x="490" y="267" text-anchor="middle" class="small">Buyer / Seller / Admin</text>
+  <rect x="626" y="242" width="220" height="38" rx="19" class="pill"/>
+  <text x="736" y="267" text-anchor="middle" class="small">JWT-secured APIs</text>
+  <rect x="872" y="242" width="220" height="38" rx="19" class="pill"/>
+  <text x="982" y="267" text-anchor="middle" class="small">Featured Properties</text>
+
+  <path d="M600 300 V340" class="line"/>
+  <polygon points="590,334 600,350 610,334" fill="#63d7ee"/>
+
+  <rect x="72" y="350" width="1056" height="92" rx="18" fill="#0e3a5a" stroke="#38bdf8" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="388" text-anchor="middle" class="label">API GATEWAY • PORT 8080</text>
+  <text x="600" y="417" text-anchor="middle" class="small">Routing • JWT validation • CORS allow-list • Rate limiting • Circuit breakers</text>
+
+  <path d="M600 442 V475" class="line"/>
+  <polygon points="590,469 600,485 610,469" fill="#63d7ee"/>
+
+  <text x="72" y="514" class="label">SPRING BOOT SERVICES</text>
+
+  <rect x="72" y="535" width="238" height="142" rx="16" class="service" filter="url(#shadow)"/>
+  <text x="191" y="574" text-anchor="middle" class="label">AUTH SERVICE</text>
+  <text x="191" y="603" text-anchor="middle" class="small">Registration + OTP</text>
+  <text x="191" y="628" text-anchor="middle" class="small">JWT + sessions</text>
+  <text x="191" y="653" text-anchor="middle" class="small">Admin management</text>
+  <text x="191" y="700" text-anchor="middle" class="tiny">:8081</text>
+
+  <rect x="328" y="535" width="238" height="142" rx="16" class="service" filter="url(#shadow)"/>
+  <text x="447" y="574" text-anchor="middle" class="label">USER SERVICE</text>
+  <text x="447" y="603" text-anchor="middle" class="small">Profiles + settings</text>
+  <text x="447" y="628" text-anchor="middle" class="small">Addresses + follows</text>
+  <text x="447" y="653" text-anchor="middle" class="small">Blocks + Kafka listener</text>
+  <text x="447" y="700" text-anchor="middle" class="tiny">:8083</text>
+
+  <rect x="584" y="535" width="238" height="142" rx="16" class="service" filter="url(#shadow)"/>
+  <text x="703" y="574" text-anchor="middle" class="label">PROPERTY SERVICE</text>
+  <text x="703" y="603" text-anchor="middle" class="small">Listings + search</text>
+  <text x="703" y="628" text-anchor="middle" class="small">Images + amenities</text>
+  <text x="703" y="653" text-anchor="middle" class="small">Favorites + reviews</text>
+  <text x="703" y="700" text-anchor="middle" class="tiny">:8082</text>
+
+  <rect x="840" y="535" width="238" height="142" rx="16" class="service" filter="url(#shadow)"/>
+  <text x="959" y="574" text-anchor="middle" class="label">AUDIT SERVICE</text>
+  <text x="959" y="603" text-anchor="middle" class="small">Central audit logs</text>
+  <text x="959" y="628" text-anchor="middle" class="small">Sync + async ingestion</text>
+  <text x="959" y="653" text-anchor="middle" class="small">Admin search</text>
+  <text x="959" y="700" text-anchor="middle" class="tiny">:8084</text>
+
+  <path d="M191 677 V730 M447 677 V730 M703 677 V730 M959 677 V730" class="dash"/>
+  <path d="M191 730 H959" class="dash"/>
+  <path d="M600 730 V758" class="line"/>
+  <polygon points="590,752 600,768 610,752" fill="#63d7ee"/>
+
+  <rect x="72" y="775" width="1056" height="122" rx="18" class="infra" filter="url(#shadow)"/>
+  <text x="104" y="812" class="label">EVENTS + DATA</text>
+  <rect x="104" y="830" width="220" height="42" rx="21" class="pill"/>
+  <text x="214" y="856" text-anchor="middle" class="small">Kafka: auth.user.events</text>
+  <rect x="350" y="830" width="170" height="42" rx="21" class="pill"/>
+  <text x="435" y="856" text-anchor="middle" class="small">PostgreSQL</text>
+  <rect x="546" y="830" width="170" height="42" rx="21" class="pill"/>
+  <text x="631" y="856" text-anchor="middle" class="small">MySQL</text>
+  <rect x="742" y="830" width="170" height="42" rx="21" class="pill"/>
+  <text x="827" y="856" text-anchor="middle" class="small">Redis</text>
+  <rect x="938" y="830" width="154" height="42" rx="21" class="pill"/>
+  <text x="1015" y="856" text-anchor="middle" class="small">Audit Starter</text>
+
+  <path d="M600 897 V930" class="line"/>
+  <polygon points="590,924 600,940 610,924" fill="#63d7ee"/>
+
+  <rect x="72" y="947" width="1056" height="146" rx="18" fill="#132c52" stroke="#a78bfa" stroke-width="2" filter="url(#shadow)"/>
+  <text x="104" y="985" class="label">DELIVERY &amp; CLOUD</text>
+  <rect x="104" y="1004" width="280" height="55" rx="12" fill="#342766" stroke="#a78bfa"/>
+  <text x="244" y="1037" text-anchor="middle" class="label">GitHub Actions</text>
+  <text x="244" y="1056" text-anchor="middle" class="tiny">Build • test • validate</text>
+  <rect x="420" y="1004" width="280" height="55" rx="12" fill="#342766" stroke="#a78bfa"/>
+  <text x="560" y="1037" text-anchor="middle" class="label">Docker Hub</text>
+  <text x="560" y="1056" text-anchor="middle" class="tiny">Immutable SHA images</text>
+  <rect x="736" y="1004" width="356" height="55" rx="12" fill="#342766" stroke="#a78bfa"/>
+  <text x="914" y="1037" text-anchor="middle" class="label">AWS EC2 + Terraform</text>
+  <text x="914" y="1056" text-anchor="middle" class="tiny">VPC • subnets • service-owned EC2</text>
+
+  <text x="600" y="1146" text-anchor="middle" class="subtitle">Build once. Ship immutable images. Own the infrastructure.</text>
+</svg>

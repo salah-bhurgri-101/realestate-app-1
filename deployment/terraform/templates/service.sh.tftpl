@@ -1,0 +1,42 @@
+#!/bin/bash
+set -euo pipefail
+dnf install -y docker
+systemctl enable --now docker
+echo '${dockerhub_token}' | docker login --username '${dockerhub_username}' --password-stdin
+mkdir -p /opt/aurelia
+cat > /opt/aurelia/${service}.env <<'ENV'
+SPRING_PROFILES_ACTIVE=prod
+JWT_SECRET=${jwt_secret}
+CORS_ORIGINS=${cors_origins}
+MAIL_USERNAME=${mail_username}
+MAIL_PASSWORD=${mail_password}
+SERVER_PORT=${container_port}
+DB_HOST=${db_host}
+DB_PORT=${db_port}
+DB_NAME=${db_name}
+DB_USERNAME=${db_username}
+DB_PASSWORD=${db_password}
+REDIS_HOST=${redis_ip}
+REDIS_PORT=6379
+REDIS_PASSWORD=${redis_password}
+KAFKA_BOOTSTRAP_SERVERS=${kafka_ip}:9092
+ENV
+docker pull '${image}:latest'
+docker rm -f aurelia-${service} 2>/dev/null || true
+cat > /etc/systemd/system/aurelia-${service}.service <<UNIT
+[Unit]
+After=docker.service
+Requires=docker.service
+[Service]
+Restart=always
+# Every restart (including the ones CI triggers on deploy) pulls the
+# freshest :latest image first, so "systemctl restart" == "deploy".
+ExecStartPre=-/usr/bin/docker pull '${image}:latest'
+ExecStartPre=-/usr/bin/docker rm -f aurelia-${service}
+ExecStart=/usr/bin/docker run --name aurelia-${service} --env-file /opt/aurelia/${service}.env -p ${host_port}:${container_port} '${image}:latest'
+ExecStop=/usr/bin/docker rm -f aurelia-${service}
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now aurelia-${service}.service

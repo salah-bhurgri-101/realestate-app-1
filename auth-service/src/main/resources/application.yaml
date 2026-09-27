@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: auth-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+
+  jpa:
+    properties:
+      hibernate:
+#        dialect: org.hibernate.dialect.PostgreSQLDialect # PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+        default_batch_fetch_size: 50
+
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 10
+        queue-capacity: 25
+    scheduling:
+      pool:
+        size: 3
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+  otp:
+    expiry-minutes: 5
+    rate-limit-minutes: 15
+
+server:
+  shutdown: graceful
+
+# ── auth config (common) ───────────────────────────────────────────────────
+auth:
+  jwt:
+    access-token-expiry-ms: 86400000 #  900000 for 15 minutes
+    issuer: auth-service
+
+  refresh-token:
+    expiry-days: 30
+
+  kafka:
+    user-events-topic: ${AUTH_USER_EVENTS_TOPIC:auth.user.events}
+
+# ── actuator ──────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+
+# ── logging ───────────────────────────────────────────────────────────────
+#logging:
+#  level:
+#    com.realestate.auth_service: INFO

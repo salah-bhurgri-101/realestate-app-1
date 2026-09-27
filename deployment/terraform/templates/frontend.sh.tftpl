@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+dnf install -y docker
+systemctl enable --now docker
+echo '${dockerhub_token}' | docker login --username '${dockerhub_username}' --password-stdin
+docker pull '${image}:latest'
+docker rm -f aurelia-auth-frontend 2>/dev/null || true
+cat > /etc/systemd/system/aurelia-auth-frontend.service <<UNIT
+[Unit]
+After=docker.service
+Requires=docker.service
+[Service]
+Restart=always
+# Every restart (including the ones CI triggers on deploy) pulls the
+# freshest :latest image first, so "systemctl restart" == "deploy".
+ExecStartPre=-/usr/bin/docker pull '${image}:latest'
+ExecStartPre=-/usr/bin/docker rm -f aurelia-auth-frontend
+ExecStart=/usr/bin/docker run --name aurelia-auth-frontend -p 80:80 '${image}:latest'
+ExecStop=/usr/bin/docker rm -f aurelia-auth-frontend
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now aurelia-auth-frontend.service

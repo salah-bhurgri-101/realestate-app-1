@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+dnf install -y docker
+systemctl enable --now docker
+echo '${dockerhub_token}' | docker login --username '${dockerhub_username}' --password-stdin
+docker pull '${image}'
+docker rm -f aurelia-auth-frontend 2>/dev/null || true
+cat > /etc/systemd/system/aurelia-auth-frontend.service <<UNIT
+[Unit]
+After=docker.service
+Requires=docker.service
+[Service]
+Restart=always
+ExecStartPre=-/usr/bin/docker rm -f aurelia-auth-frontend
+ExecStart=/usr/bin/docker run --name aurelia-auth-frontend -p 80:80 '${image}'
+ExecStop=/usr/bin/docker rm -f aurelia-auth-frontend
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl enable --now aurelia-auth-frontend.service
